@@ -158,14 +158,13 @@ sealed abstract class CaptureSet extends Showable:
    *                 as frozen.
    */
   def accountsFor(x: CaptureRef)(using Context): Boolean =
-    if comparer.isInstanceOf[ExplainingTypeComparer] then // !!! DEBUG
-      reporting.trace.force(i"$this accountsFor $x, ${x.captureSetOfInfo}?", show = true):
-        elems.exists(_.subsumes(x))
-        || !x.isMaxCapability && x.captureSetOfInfo.subCaptures(this, frozen = true).isOK
-    else
-      reporting.trace(i"$this accountsFor $x, ${x.captureSetOfInfo}?", show = true):
-        elems.exists(_.subsumes(x))
-        || !x.isMaxCapability && x.captureSetOfInfo.subCaptures(this, frozen = true).isOK
+    def debugInfo(using Context) = i"$this accountsFor $x, which has capture set ${x.captureSetOfInfo}"
+    def test(using Context) = reporting.trace(debugInfo):
+      elems.exists(_.subsumes(x))
+      || !x.isMaxCapability && x.captureSetOfInfo.subCaptures(this, frozen = true).isOK
+    comparer match
+      case comparer: ExplainingTypeComparer => comparer.traceIndented(debugInfo)(test)
+      case _ => test
 
   /** A more optimistic version of accountsFor, which does not take variable supersets
    *  of the `x` reference into account. A set might account for `x` if it accounts

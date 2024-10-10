@@ -34,7 +34,11 @@ subsection:
           - page: reference/contextual/givens.md
           - page: reference/contextual/using-clauses.md
           - page: reference/contextual/context-bounds.md
+          - page: reference/contextual/deferred-givens.md
           - page: reference/contextual/given-imports.md
+          - page: reference/contextual/more-givens.md
+          - page: reference/contextual/previous-givens.md
+            hidden: true
           - page: reference/contextual/extension-methods.md
           - page: reference/contextual/right-associative-extension-methods.md
           - page: reference/contextual/type-classes.md
@@ -68,6 +72,7 @@ subsection:
           - page: reference/other-new-features/export.md
           - page: reference/other-new-features/opaques.md
           - page: reference/other-new-features/opaques-details.md
+          - page: reference/other-new-features/named-tuples.md
           - page: reference/other-new-features/open-classes.md
           - page: reference/other-new-features/parameter-untupling.md
           - page: reference/other-new-features/parameter-untupling-spec.md
@@ -154,7 +159,6 @@ subsection:
           - page: reference/experimental/cc.md
           - page: reference/experimental/purefuns.md
           - page: reference/experimental/tupled-function.md
-          - page: reference/experimental/named-tuples.md
           - page: reference/experimental/modularity.md
           - page: reference/experimental/typeclasses.md
           - page: reference/experimental/runtimeChecked.md

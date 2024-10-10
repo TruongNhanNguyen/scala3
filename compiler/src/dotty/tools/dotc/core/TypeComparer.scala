@@ -3268,9 +3268,10 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
 
   /** The trace of comparison operations when performing `op` */
   def explained[T](op: ExplainingTypeComparer => T, header: String = "Subtype trace:", short: Boolean)(using Context): String =
-    val cmp = explainingTypeComparer(short)
-    inSubComparer(cmp)(op)
-    cmp.lastTrace(header)
+    explaining(cmp => { op(cmp); cmp.lastTrace(header) }, short)
+
+  def explaining[T](op: ExplainingTypeComparer => T, short: Boolean)(using Context): T =
+    inSubComparer(explainingTypeComparer(short))(op)
 
   def reduceMatchWith[T](op: MatchReducer => T)(using Context): T =
     inSubComparer(matchReducer)(op)
@@ -3439,6 +3440,9 @@ object TypeComparer {
 
   def explained[T](op: ExplainingTypeComparer => T, header: String = "Subtype trace:", short: Boolean = false)(using Context): String =
     comparing(_.explained(op, header, short))
+
+  def explaining[T](op: ExplainingTypeComparer => T, short: Boolean = false)(using Context): T =
+    comparing(_.explaining(op, short))
 
   def reduceMatchWith[T](op: MatchReducer => T)(using Context): T =
     comparing(_.reduceMatchWith(op))
@@ -3677,19 +3681,37 @@ class MatchReducer(initctx: Context) extends TypeComparer(initctx) {
 
             stableScrut.member(typeMemberName) match
               case denot: SingleDenotation if denot.exists =>
-                val info = denot.info match
-                  case alias: AliasingBounds           => alias.alias        // Extract the alias
-                  case ClassInfo(prefix, cls, _, _, _) => prefix.select(cls) // Re-select the class from the prefix
-                  case info => info // Notably, RealTypeBounds, which will eventually give a MatchResult.NoInstances
-                val info1 = stableScrut match
+                val info = stableScrut match
                   case skolem: SkolemType =>
-                    dropSkolem(info, skolem).orElse:
-                      info match
-                        case info: TypeBounds  => info                       // Will already trigger a MatchResult.NoInstances
-                        case _                 => RealTypeBounds(info, info) // Explicitly trigger a MatchResult.NoInstances
-                  case _ => info
-                rec(capture, info1, variance = 0, scrutIsWidenedAbstract)
+                    /* If it is a skolem type, we cannot have class selections nor
+                     * abstract type selections. If it is an alias, we try to remove
+                     * any reference to the skolem from the right-hand-side. If that
+                     * succeeds, we take the result, otherwise we fail as not-specific.
+                     */
+
+                    def adaptToTriggerNotSpecific(info: Type): Type = info match
+                      case info: TypeBounds => info
+                      case _                => RealTypeBounds(info, info)
+
+                    denot.info match
+                      case denotInfo: AliasingBounds =>
+                        val alias = denotInfo.alias
+                        dropSkolem(alias, skolem).orElse(adaptToTriggerNotSpecific(alias))
+                      case ClassInfo(prefix, cls, _, _, _) =>
+                        // for clean error messages
+                        adaptToTriggerNotSpecific(prefix.select(cls))
+                      case denotInfo =>
+                        adaptToTriggerNotSpecific(denotInfo)
+
+                  case _ =>
+                    // The scrutinee type is truly stable. We select the type member directly on it.
+                    stableScrut.select(typeMemberName)
+                end info
+
+                rec(capture, info, variance = 0, scrutIsWidenedAbstract)
+
               case _ =>
+                // The type member was not found; no match
                 false
       end rec
 
@@ -3871,7 +3893,7 @@ class ExplainingTypeComparer(initctx: Context, short: Boolean) extends TypeCompa
   override def recur(tp1: Type, tp2: Type): Boolean =
     def moreInfo =
       if Config.verboseExplainSubtype || ctx.settings.verbose.value
-      then s" ${tp1.getClass} ${tp2.getClass}"
+      then s" ${tp1.className} ${tp2.className}"
       else ""
     val approx = approxState
     def approxStr = if short then "" else approx.show

@@ -394,7 +394,7 @@ class CheckCaptures extends Recheck, SymTransformer:
                 val isVisible = isVisibleFromEnv(refOwner)
                 if !isVisible
                     && (c.isReach || ref.isType)
-                    && refSym.is(Param)
+                    && (!ccConfig.useSealed || refSym.is(Param))
                     && refOwner == env.owner
                 then
                   if refSym.hasAnnotation(defn.UnboxAnnot) then
@@ -969,7 +969,7 @@ class CheckCaptures extends Recheck, SymTransformer:
       if tree.isTerm then
         if !ccConfig.useExistentials then
           checkReachCapsIsolated(res.widen, tree.srcPos)
-        if !pt.isBoxedCapturing then
+        if !pt.isBoxedCapturing && pt != LhsProto then
           markFree(res.boxedCaptureSet, tree.srcPos)
       res
 
@@ -978,21 +978,28 @@ class CheckCaptures extends Recheck, SymTransformer:
         case _: RefTree | _: Apply | _: TypeApply => tree.symbol.unboxesResult
         case _: Try => true
         case _ => false
-      def checkNotUniversal(tp: Type): Unit = tp.widenDealias match
-        case wtp @ CapturingType(parent, refs) =>
-          refs.disallowRootCapability { () =>
-            report.error(
-              em"""The expression's type $wtp is not allowed to capture the root capability `cap`.
-                  |This usually means that a capability persists longer than its allowed lifetime.""",
-              tree.srcPos)
-          }
-          checkNotUniversal(parent)
-        case _ =>
+
+      object checkNotUniversal extends TypeTraverser:
+        def traverse(tp: Type) =
+         tp.dealias match
+          case wtp @ CapturingType(parent, refs) =>
+            if variance > 0 then
+              refs.disallowRootCapability: () =>
+                def part = if wtp eq tpe.widen then "" else i" in its part $wtp"
+                report.error(
+                  em"""The expression's type ${tpe.widen} is not allowed to capture the root capability `cap`$part.
+                    |This usually means that a capability persists longer than its allowed lifetime.""",
+                  tree.srcPos)
+            if !wtp.isBoxed then traverse(parent)
+          case tp =>
+            traverseChildren(tp)
+
       if !ccConfig.useSealed
           && !tpe.hasAnnotation(defn.UncheckedCapturesAnnot)
           && needsUniversalCheck
+          && tpe.widen.isValueType
       then
-        checkNotUniversal(tpe)
+        checkNotUniversal.traverse(tpe.widen)
       super.recheckFinish(tpe, tree, pt)
     end recheckFinish
 

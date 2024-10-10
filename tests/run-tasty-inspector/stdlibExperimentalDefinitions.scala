@@ -63,6 +63,9 @@ val experimentalDefinitionInLibrary = Set(
   "scala.quoted.Quotes.reflectModule.SymbolModule.newModule",
   "scala.quoted.Quotes.reflectModule.SymbolModule.freshName",
   "scala.quoted.Quotes.reflectModule.SymbolMethods.info",
+  // Added for 3.6.0, stabilize after feedback.
+  "scala.quoted.Quotes.reflectModule.SymbolModule.newBoundedType",
+  "scala.quoted.Quotes.reflectModule.SymbolModule.newTypeAlias",
 
   // New feature: functions with erased parameters.
   // Need erasedDefinitions enabled.
@@ -74,16 +77,9 @@ val experimentalDefinitionInLibrary = Set(
   // New feature: fromNullable for explicit nulls
   "scala.Predef$.fromNullable",
 
-  // New feature: named tuples
-  "scala.NamedTuple",
-  "scala.NamedTuple$",
-  "scala.NamedTupleDecomposition",
-  "scala.NamedTupleDecomposition$",
-
   // New feature: modularity
   "scala.Precise",
   "scala.annotation.internal.WitnessNames",
-  "scala.compiletime.package$package$.deferred",
   "scala.runtime.stdLibPatches.Predef$.is",
 
   // New feature: functions with erased parameters.

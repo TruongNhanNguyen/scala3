@@ -28,6 +28,7 @@ on:
 
 env:
   DOTTY_CI_RUN: true
+  DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
 # In this file, we set `--cpu-shares 4096` on every job. This might seem useless
 # since it means that every container has the same weight which should be
@@ -227,7 +228,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Test
-        run: sbt ";scala3-bootstrapped/compile; scala3-bootstrapped/testCompilation"
+        run: sbt ";scala3-bootstrapped/compile; scala3-bootstrapped/testCompilation; scala3-presentation-compiler/test; scala3-language-server/test"
         shell: cmd
 
       - name: build binary
@@ -686,14 +687,6 @@ jobs:
     if: "(github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.repository == 'scala/scala3'"
     env:
       NIGHTLYBUILD: yes
-      DOTTY_WEBSITE_BOT_TOKEN: ${{ secrets.BOT_TOKEN }}  # If you need to change this:
-                                          # Generate one at https://github.com/settings/tokens
-                                          # Make sure you have the write permissions to the repo: https://github.com/lampepfl/dotty-website
-      # Currently unused token, no need to deploy anything to docs.scala-lang
-      # DOCS_SCALALANG_BOT_TOKEN: ${{ secrets.DOCS_SCALALANG_BOT_TOKEN }}  # If you need to change this:
-                                          # Generate one at https://github.com/settings/tokens
-                                          # Make sure you have the write permissions to the repo: https://github.com/scala/docs.scala-lang
-
     steps:
       - name: Reset existing repo
         run: |
@@ -717,13 +710,13 @@ jobs:
           git config --global --add safe.directory /__w/scala3/scala3
           ./project/scripts/genDocs -doc-snapshot
 
-      - name: Deploy Website to dotty-website
+      - name: Deploy Website to https://dotty.epfl.ch
         uses: peaceiris/actions-gh-pages@v4
         with:
-          personal_token: ${{ env.DOTTY_WEBSITE_BOT_TOKEN }}
+          personal_token: ${{ secrets.DOTTYBOT_TOKEN }}
           publish_dir: docs/_site
-          external_repository: lampepfl/dotty-website
-          publish_branch: gh-pages
+          external_repository: scala/dotty.epfl.ch
+          publish_branch: main
 
   publish_release:
     permissions:
@@ -1013,9 +1006,15 @@ jobs:
     uses: ./.github/workflows/build-msi.yml
     if  : github.event_name == 'pull_request' && contains(github.event.pull_request.body, '[test_msi]')
     # TODO: ADD A JOB THAT DEPENDS ON THIS TO TEST THE MSI
-    
+
   build-sdk-package:
     uses: ./.github/workflows/build-sdk.yml
+    if:
+      (github.event_name == 'pull_request' && !contains(github.event.pull_request.body, '[skip ci]')) ||
+      (github.event_name == 'workflow_dispatch' && github.repository == 'scala/scala3') ||
+      (github.event_name == 'schedule' && github.repository == 'scala/scala3') ||
+      github.event_name == 'push' ||
+      github.event_name == 'merge_group'
     with:
       java-version: 8
 
